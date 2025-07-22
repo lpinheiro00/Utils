@@ -2,74 +2,144 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Calculadora de Arbitragem</title>
+  <title>Calculadora de Arbitragem (2 ou 3 vias)</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f8f8f8; }
-    input, button { padding: 10px; width: 100%; margin-top: 10px; }
-    .resultado { margin-top: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 10px #ddd; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      background: #f9f9f9;
+    }
+    h2 {
+      color: #333;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0 12px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .resultado {
+      margin-top: 20px;
+      background: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
-  <h2>Calculadora de Arbitragem</h2>
 
-  <label>Odd do Time A (favorito - Pinnacle):</label>
-  <input type="number" step="0.01" id="oddA">
+  <h2>Calculadora de Arbitragem (2 ou 3 vias)</h2>
 
-  <label>Odd do Time B (azarão - outra casa):</label>
-  <input type="number" step="0.01" id="oddB">
+  <label for="oddA">Odd do Time A:</label>
+  <input type="number" id="oddA" step="0.01">
 
-  <label>Valor total a investir (R$):</label>
-  <input type="number" step="0.01" id="valorTotal" value="1000">
+  <label for="oddB">Odd do Time B:</label>
+  <input type="number" id="oddB" step="0.01">
 
-  <button onclick="calcular()">Calcular</button>
+  <input type="checkbox" id="ativarEmpate" onchange="toggleEmpate()"> Ativar empate
+
+  <div id="campoEmpate" style="display:none;">
+    <label for="oddEmpate">Odd do Empate:</label>
+    <input type="number" id="oddEmpate" step="0.01">
+  </div>
+
+  <label for="valorTotal">Valor total a investir (R$):</label>
+  <input type="number" id="valorTotal" step="0.01" value="1000">
+
+  <button onclick="calcular()">Calcular Arbitragem</button>
 
   <div class="resultado" id="resultado"></div>
 
   <script>
+    function toggleEmpate() {
+      const campo = document.getElementById("campoEmpate");
+      campo.style.display = document.getElementById("ativarEmpate").checked ? "block" : "none";
+    }
+
     function calcular() {
       const oddA = parseFloat(document.getElementById("oddA").value);
       const oddB = parseFloat(document.getElementById("oddB").value);
+      const usarEmpate = document.getElementById("ativarEmpate").checked;
+      const oddEmpate = usarEmpate ? parseFloat(document.getElementById("oddEmpate").value) : null;
       const valorTotal = parseFloat(document.getElementById("valorTotal").value);
-      const resultado = document.getElementById("resultado");
+      const resultadoDiv = document.getElementById("resultado");
 
-      if (!oddA || !oddB || !valorTotal) {
-        resultado.innerHTML = `<strong style="color:red">Preencha todos os campos corretamente.</strong>`;
+      if (isNaN(oddA) || isNaN(oddB) || isNaN(valorTotal) || (usarEmpate && isNaN(oddEmpate))) {
+        resultadoDiv.innerHTML = "<strong style='color: red;'>Preencha todos os campos corretamente.</strong>";
         return;
       }
 
-      const somaRecip = (1 / oddA) + (1 / oddB);
+      // Soma dos recíprocos
+      let somaRecip = (1 / oddA) + (1 / oddB);
+      if (usarEmpate) somaRecip += (1 / oddEmpate);
 
       if (somaRecip >= 1) {
-        resultado.innerHTML = `❌ <strong style="color:red">Sem arbitragem! (soma dos recíprocos = ${somaRecip.toFixed(4)})</strong>`;
+        resultadoDiv.innerHTML = `<strong style="color: red;">❌ Não há arbitragem segura.<br>Soma dos recíprocos: ${somaRecip.toFixed(4)}</strong>`;
         return;
       }
 
+      // Proporções
       const propA = (1 / oddA) / somaRecip;
       const propB = (1 / oddB) / somaRecip;
+      const propEmpate = usarEmpate ? (1 / oddEmpate) / somaRecip : 0;
 
       const valorA = valorTotal * propA;
       const valorB = valorTotal * propB;
+      const valorE = valorTotal * propEmpate;
 
       const retornoA = valorA * oddA;
       const retornoB = valorB * oddB;
+      const retornoE = usarEmpate ? valorE * oddEmpate : 0;
 
       const lucroA = retornoA - valorTotal;
       const lucroB = retornoB - valorTotal;
-      const lucroMedio = (lucroA + lucroB) / 2;
-      const percLucro = (lucroMedio / valorTotal) * 100;
+      const lucroE = usarEmpate ? retornoE - valorTotal : null;
 
-      resultado.innerHTML = `
-        ✅ <strong>Arbitragem válida!</strong><br><br>
+      const lucroMedio = usarEmpate
+        ? (lucroA + lucroB + lucroE) / 3
+        : (lucroA + lucroB) / 2;
+
+      const porcentagemLucro = (lucroMedio / valorTotal) * 100;
+
+      // Exibição
+      resultadoDiv.innerHTML = `
+        ✅ <strong>Arbitragem encontrada!</strong><br><br>
         <strong>Apostar:</strong><br>
-        • R$${valorA.toFixed(2)} no Time A (odd ${oddA})<br>
-        • R$${valorB.toFixed(2)} no Time B (odd ${oddB})<br><br>
+        - R$${valorA.toFixed(2)} no Time A (odd ${oddA})<br>
+        - R$${valorB.toFixed(2)} no Time B (odd ${oddB})<br>
+        ${usarEmpate ? `- R$${valorE.toFixed(2)} no Empate (odd ${oddEmpate})<br>` : ""}
+        <br>
         <strong>Lucro garantido:</strong><br>
-        • Se Time A vencer: R$${lucroA.toFixed(2)}<br>
-        • Se Time B vencer: R$${lucroB.toFixed(2)}<br><br>
-        <strong>Lucro médio:</strong> R$${lucroMedio.toFixed(2)} (${percLucro.toFixed(2)}%)<br>
+        - Se Time A vencer: <span style="color: green;">R$${lucroA.toFixed(2)}</span><br>
+        - Se Time B vencer: <span style="color: green;">R$${lucroB.toFixed(2)}</span><br>
+        ${usarEmpate ? `- Se empatar: <span style="color: green;">R$${lucroE.toFixed(2)}</span><br>` : ""}
+        <br>
+        <strong>Lucro médio:</strong> R$${lucroMedio.toFixed(2)}<br>
+        <strong>Porcentagem de lucro:</strong> ${porcentagemLucro.toFixed(2)}%<br>
         <strong>Soma dos recíprocos:</strong> ${somaRecip.toFixed(4)}
       `;
     }
   </script>
+
 </body>
 </html>
